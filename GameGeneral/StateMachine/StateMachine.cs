@@ -1,14 +1,5 @@
 ﻿using UnityEngine;
 using System;
-    public interface IState
-    {
-        void OnEnter();
-        void OnUpdate();
-        void OnFixedUpdate();
-        void OnExit();
-
-    }
-
     public class StateMachine
     {
         private int m_currentState = -1;
