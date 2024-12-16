@@ -6,7 +6,7 @@ namespace PathFinding
 {
     public class DStarLite<T>
     {
-        private const int MAX_CYCLES = 1000;
+        private const int MAX_CYCLES = 10000;
         
         private readonly Node<T> m_startNode;
         private readonly Node<T> m_goalNode;
@@ -165,14 +165,13 @@ namespace PathFinding
 
         public List<Node<T>> GetPath()
         {
+            List<Node<T>> newPath = new();
             if (Mathf.Approximately(float.MaxValue, m_startNode.costToGoalNode) ||
                 !Mathf.Approximately(m_startNode.costFromStartNode, m_startNode.costToGoalNode))
             {
                 Debug.LogWarning("No Path");
-                return null;
+                return newPath;
             }
-
-            List<Node<T>> newPath = new();
             Node<T> currentNode = m_startNode;
             int maxCycles = MAX_CYCLES;
             float costToGoal;
@@ -180,20 +179,33 @@ namespace PathFinding
             {
                 if (--maxCycles == 0)
                 {
+                    Debug.LogWarning("Max Cycle in Get Path");
                     break;
                 }
                 newPath.Add(currentNode);
                 costToGoal = float.MaxValue;
-                foreach (Node<T> successorNode in Successors(currentNode))
+                Node<T> nextNode = currentNode;
+                foreach (Node<T> neighbourNode in Successors(currentNode))
                 {
-                    if (successorNode.costToGoalNode > costToGoal)
+                    if (newPath.Contains(neighbourNode))
                     {
-                       continue;
+                        continue;
                     }
-                    costToGoal = successorNode.costToGoalNode;
-                    currentNode = successorNode;
+
+                    if (neighbourNode == m_goalNode)
+                    {
+                        nextNode = neighbourNode;
+                        break;
+                    }
+                    if (neighbourNode.costToGoalNode < costToGoal)
+                    {
+                        costToGoal = neighbourNode.costToGoalNode;
+                        nextNode = neighbourNode;
+                    }
                 }
+                currentNode = nextNode;
             }
+            newPath.Add(m_goalNode);
             return newPath;
         }
         
@@ -212,11 +224,10 @@ namespace PathFinding
         private NodeKey CalculateKey(Node<T> node)
         {
             return new NodeKey(
-                Mathf.Min(node.costToGoalNode, node.costFromStartNode) 
+                Mathf.Min(node.costToGoalNode, node.costFromStartNode)
                 + node.lowestCostFromOneNodeToAnother(node, m_startNode)
-                + m_keyModifier,
-                Mathf.Min(node.costFromStartNode, node.costFromStartNode)
-            );
+                + m_keyModifier
+                ,Mathf.Min(node.costFromStartNode, node.costFromStartNode));
         }
         
         private void UpdateVertex(Node<T> node)
