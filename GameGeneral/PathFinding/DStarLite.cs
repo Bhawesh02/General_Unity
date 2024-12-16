@@ -78,8 +78,7 @@ namespace PathFinding
             m_goalNode.costToGoalNode = 0f;
 
             NodeKey key = CalculateKey(m_goalNode);
-            m_openNodeSet.Add((key ,m_goalNode));
-            m_lockups[m_goalNode] = key;
+            InsertNodeSet(key, m_goalNode);
             
         }
 
@@ -97,8 +96,9 @@ namespace PathFinding
                 if (smallestNodeKey < newKey)
                 {
                     InsertNodeSet(newKey, smallestNode);
+                    continue;
                 }
-                else if (smallestNode.costToGoalNode > smallestNode.costFromStartNode)
+                if (smallestNode.costToGoalNode > smallestNode.costFromStartNode)
                 {
                     smallestNode.costToGoalNode = smallestNode.costFromStartNode;
                     foreach (Node<T> node in Predecessors(smallestNode))
@@ -112,38 +112,36 @@ namespace PathFinding
                         }
                         UpdateVertex(node);
                     }
+                    continue;
                 }
-                else
+                float oldCostToGoal = smallestNode.costToGoalNode;
+                smallestNode.costToGoalNode = float.MaxValue;
+                float costCalculation;
+                foreach (Node<T> node in Predecessors(smallestNode).Concat( new[] { smallestNode }))
                 {
-                    float oldCostToGoal = smallestNode.costToGoalNode;
-                    smallestNode.costToGoalNode = float.MaxValue;
-                    float costCalculation;
-                    foreach (Node<T> node in Predecessors(smallestNode).Concat( new[] { smallestNode }))
+                    costCalculation = node.realCostFromOneNodeToAnother(node, smallestNode) + oldCostToGoal;
+                    if (!Mathf.Approximately(node.costFromStartNode, costCalculation))
                     {
-                        costCalculation = node.realCostFromOneNodeToAnother(node, smallestNode) + oldCostToGoal;
-                        if (!Mathf.Approximately(node.costFromStartNode, costCalculation))
-                        {
-                            continue;
-                        }
-                        if (node != m_goalNode)
-                        {
-                            node.costFromStartNode = float.MaxValue;
-                        }
-                        foreach (Node<T> successor in Successors(node))
-                        {
-                            node.costFromStartNode = Mathf.Min(
-                                node.costFromStartNode,
-                                node.realCostFromOneNodeToAnother(node, successor) + successor.costToGoalNode
-                            );
-                        }
-                        UpdateVertex(node);
+                        continue;
                     }
+                    if (node != m_goalNode)
+                    {
+                        node.costFromStartNode = float.MaxValue;
+                    }
+                    foreach (Node<T> successor in Successors(node))
+                    {
+                        node.costFromStartNode = Mathf.Min(
+                            node.costFromStartNode,
+                            node.realCostFromOneNodeToAnother(node, successor) + successor.costToGoalNode
+                        );
+                    }
+                    UpdateVertex(node);
                 }
             }
 
             m_startNode.costToGoalNode = m_startNode.costFromStartNode;
         }
-
+    
         public void RecalculateNode(Node<T> node)
         {
             m_keyModifier += m_startNode.lowestCostFromOneNodeToAnother(m_startNode, node);
@@ -163,6 +161,40 @@ namespace PathFinding
                 ComputeShortestPath();
             }
             
+        }
+
+        public List<Node<T>> GetPath()
+        {
+            if (Mathf.Approximately(float.MaxValue, m_startNode.costToGoalNode) ||
+                !Mathf.Approximately(m_startNode.costFromStartNode, m_startNode.costToGoalNode))
+            {
+                Debug.LogWarning("No Path");
+                return null;
+            }
+
+            List<Node<T>> newPath = new();
+            Node<T> currentNode = m_startNode;
+            int maxCycles = MAX_CYCLES;
+            float costToGoal;
+            while (currentNode != m_goalNode)
+            {
+                if (--maxCycles == 0)
+                {
+                    break;
+                }
+                newPath.Add(currentNode);
+                costToGoal = float.MaxValue;
+                foreach (Node<T> successorNode in Successors(currentNode))
+                {
+                    if (successorNode.costToGoalNode > costToGoal)
+                    {
+                       continue;
+                    }
+                    costToGoal = successorNode.costToGoalNode;
+                    currentNode = successorNode;
+                }
+            }
+            return newPath;
         }
         
         private IEnumerable<Node<T>> Predecessors(Node<T> currentNode)
@@ -205,6 +237,6 @@ namespace PathFinding
             }
         }
         
-
+    
     }
 }
